@@ -1,3 +1,112 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Color tokens as CSS custom properties (space-separated RGB triplets, used
+ * via Tailwind's `rgb(var(--x) / <alpha-value>)` pattern in tailwind.config.js)
+ * so every existing `bg-*`/`text-*`/`border-*` utility automatically becomes
+ * dark-mode aware without touching individual pages. Toggled by adding/removing
+ * the `dark` class on <html> (see DarkModeToggle.vue).
+ */
+:root {
+    --color-primary: 27 175 122;
+    --color-primary-deep: 20 128 90;
+    --color-primary-light: 47 201 143;
+    --color-primary-tint: 215 243 231;
+
+    --color-accent: 235 104 52;
+    --color-accent-deep: 184 78 34;
+    --color-accent-mid: 240 139 92;
+    --color-accent-tint: 252 227 216;
+
+    --color-ink: 20 23 31;
+    --color-ink-light: 43 47 58;
+
+    --color-background: 243 245 249;
+    --color-background-alt: 236 239 244;
+
+    --color-surface: 255 255 255;
+    --color-surface-white: 255 255 255;
+
+    --color-text-primary: 22 26 34;
+    --color-text-body: 91 98 112;
+    --color-text-muted: 154 161 174;
+
+    --color-border: 228 231 238;
+    --color-border-strong: 212 216 226;
+
+    --color-stat-teal: 27 175 122;
+    --color-stat-teal-tint: 215 243 231;
+    --color-stat-teal-deep: 20 128 90;
+
+    --color-stat-blue: 42 120 214;
+    --color-stat-blue-tint: 220 234 250;
+    --color-stat-blue-deep: 29 92 168;
+
+    --color-stat-orange: 235 104 52;
+    --color-stat-orange-tint: 252 227 216;
+    --color-stat-orange-deep: 184 78 34;
+
+    --color-stat-violet: 74 58 167;
+    --color-stat-violet-tint: 227 223 246;
+    --color-stat-violet-deep: 54 40 118;
+}
+
+.dark {
+    --color-primary: 47 201 143;
+    --color-primary-deep: 79 217 166;
+    --color-primary-light: 27 175 122;
+    --color-primary-tint: 18 58 44;
+
+    --color-accent: 240 139 92;
+    --color-accent-deep: 244 162 117;
+    --color-accent-mid: 235 104 52;
+    --color-accent-tint: 61 36 24;
+
+    --color-ink: 46 51 64;
+    --color-ink-light: 61 67 80;
+
+    --color-background: 13 15 20;
+    --color-background-alt: 20 23 30;
+
+    --color-surface: 26 29 37;
+    --color-surface-white: 26 29 37;
+
+    --color-text-primary: 241 242 244;
+    --color-text-body: 184 188 197;
+    --color-text-muted: 125 130 143;
+
+    --color-border: 42 46 56;
+    --color-border-strong: 56 61 74;
+
+    --color-stat-teal: 47 201 143;
+    --color-stat-teal-tint: 18 58 44;
+    --color-stat-teal-deep: 79 217 166;
+
+    --color-stat-blue: 88 158 235;
+    --color-stat-blue-tint: 22 39 61;
+    --color-stat-blue-deep: 127 180 238;
+
+    --color-stat-orange: 240 139 92;
+    --color-stat-orange-tint: 61 36 24;
+    --color-stat-orange-deep: 244 162 117;
+
+    --color-stat-violet: 130 116 224;
+    --color-stat-violet-tint: 36 29 61;
+    --color-stat-violet-deep: 167 154 232;
+}
+
+/*
+ * @tailwindcss/forms hardcodes a white background/border on every form
+ * element via its base-layer reset, so plain <input>/<select>/<textarea>
+ * elements (anywhere a page didn't already style them explicitly) would
+ * stay bright white in dark mode without this override.
+ */
+.dark input:not([type='checkbox']):not([type='radio']),
+.dark select,
+.dark textarea {
+    background-color: rgb(var(--color-surface));
+    color: rgb(var(--color-text-primary));
+    border-color: rgb(var(--color-border));
+}

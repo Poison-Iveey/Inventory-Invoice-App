@@ -6,15 +6,18 @@ use App\Mail\InvoiceMail;
 use App\Models\Invoice;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Mail;
 
-class SendInvoiceEmail implements ShouldQueue
+// Deliberately NOT a queued job (no ShouldQueue): this project's dev workflow
+// is just `php artisan serve` with no separate queue worker running, so a
+// queued job here would silently sit in the `jobs` table forever — exactly
+// the bug this was previously stuck on. Sends immediately instead, matching
+// the AccountCreated notification's synchronous pattern.
+class SendInvoiceEmail
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, Queueable, SerializesModels;
 
     public Invoice $invoice;
 

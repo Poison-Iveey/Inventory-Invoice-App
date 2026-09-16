@@ -19,16 +19,16 @@ class CustomerPolicy
 
     public function create(User $user): bool
     {
-        return $user->isAdmin();
+        return $user->isStaff();
     }
 
     public function update(User $user, Customer $customer): bool
     {
-        return $user->isAdmin();
+        return $user->isStaff();
     }
 
     public function delete(User $user, Customer $customer): bool
     {
-        return $user->isAdmin();
+        return $user->isStaff();
     }
 }

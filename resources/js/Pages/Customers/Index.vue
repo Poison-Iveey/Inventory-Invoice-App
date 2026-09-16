@@ -1,57 +1,111 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3'
+import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import { ref } from 'vue'
-import { Inertia } from '@inertiajs/inertia'
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import Pagination from '@/Components/Pagination.vue'
 
 const props = defineProps({ customers: Object, filters: Object })
+const page = usePage()
 const searchTerm = ref(props.filters?.search || '')
+const canManageCustomers = page.props.auth.user?.role === 'staff'
 let timeout = null
-function onSearch(){
+
+function onSearch() {
   clearTimeout(timeout)
-  timeout = setTimeout(()=>{
-    Inertia.get('/customers',{search:searchTerm.value},{preserveState:true,replace:true})
-  },300)
+  timeout = setTimeout(() => {
+    router.get(route('customers.index'), { search: searchTerm.value }, { preserveState: true, replace: true })
+  }, 300)
+}
+
+function destroyCustomer(customer) {
+  if (confirm(`Delete ${customer.name}? This also deletes their login and all of their invoices. This cannot be undone.`)) {
+    router.delete(route('customers.destroy', customer.id), { preserveScroll: true })
+  }
 }
 </script>
 
 <template>
   <Head title="Customers" />
-  <div class="p-6">
-    <div class="flex justify-between items-center mb-4">
-      <div>
-        <h1 class="text-2xl font-semibold">Customers</h1>
-        <div class="mt-2">
-          <input type="text" v-model="searchTerm" @input="onSearch" class="border p-2" placeholder="Search customers" />
+
+  <AuthenticatedLayout>
+    <template #header>
+      <h2 class="text-3xl font-bold text-text-primary">Customers</h2>
+    </template>
+
+    <div class="mx-auto max-w-7xl space-y-6 p-6">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <input
+          type="text"
+          v-model="searchTerm"
+          @input="onSearch"
+          placeholder="Search customers"
+          class="rounded-md border-border shadow-sm focus:border-accent focus:ring-accent"
+        />
+        <Link
+          v-if="canManageCustomers"
+          :href="route('customers.create')"
+          class="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition duration-150 ease-in-out hover:bg-primary-deep"
+        >
+          Create Customer
+        </Link>
+      </div>
+
+      <div class="overflow-hidden rounded-2xl border border-border bg-surface-DEFAULT shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead class="border-b border-border bg-background-alt">
+              <tr>
+                <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Name</th>
+                <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Email</th>
+                <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Phone</th>
+                <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Login</th>
+                <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              <tr v-for="customer in customers.data" :key="customer.id" class="transition hover:bg-background-alt">
+                <td class="px-6 py-4 text-sm font-medium text-text-primary">{{ customer.name }}</td>
+                <td class="px-6 py-4 text-sm text-text-body">{{ customer.email }}</td>
+                <td class="px-6 py-4 text-sm text-text-body">{{ customer.phone || '—' }}</td>
+                <td class="px-6 py-4 text-sm">
+                  <span
+                    :class="[
+                      'inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                      customer.has_login ? 'bg-stat-teal-tint text-stat-teal-deep' : 'bg-border text-text-body',
+                    ]"
+                  >
+                    {{ customer.has_login ? 'Active' : 'None' }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-sm">
+                  <div class="flex flex-wrap items-center gap-x-1 gap-y-1">
+                    <template v-if="canManageCustomers">
+                      <Link :href="route('customers.edit', customer.id)" class="font-medium text-primary hover:text-primary-deep">
+                        Edit
+                      </Link>
+                      <span class="text-border">|</span>
+                    </template>
+                    <Link :href="route('customers.show', customer.id)" class="font-medium text-primary hover:text-primary-deep">
+                      View
+                    </Link>
+                    <template v-if="canManageCustomers">
+                      <span class="text-border">|</span>
+                      <button @click="destroyCustomer(customer)" class="font-medium text-red-600 hover:text-red-800">
+                        Delete
+                      </button>
+                    </template>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!customers.data.length">
+                <td colspan="5" class="px-6 py-10 text-center text-text-muted">No customers found.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
-      <Link href="/customers/create" class="btn">Create Customer</Link>
+
+      <Pagination :links="customers.meta.links" />
     </div>
-
-    <table class="min-w-full bg-white">
-      <thead>
-        <tr>
-          <th class="px-4 py-2">Name</th>
-          <th class="px-4 py-2">Email</th>
-          <th class="px-4 py-2">Phone</th>
-          <th class="px-4 py-2">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="customer in customers.data" :key="customer.id" class="border-t">
-          <td class="px-4 py-2">{{ customer.name }}</td>
-          <td class="px-4 py-2">{{ customer.email }}</td>
-          <td class="px-4 py-2">{{ customer.phone }}</td>
-          <td class="px-4 py-2">
-            <Link :href="`/customers/${customer.id}/edit`" class="text-blue-600">Edit</Link> |
-            <Link :href="`/customers/${customer.id}`" class="text-blue-600">View</Link>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-  </div>
+  </AuthenticatedLayout>
 </template>
-
-<style scoped>
-.btn{background:#1f2937;color:white;padding:8px 12px;border-radius:6px}
-</style>

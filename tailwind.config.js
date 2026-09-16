@@ -1,8 +1,14 @@
 import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
 
+function withOpacity(variable) {
+    return `rgb(var(${variable}) / <alpha-value>)`;
+}
+
 /** @type {import('tailwindcss').Config} */
 export default {
+    darkMode: 'class',
+
     content: [
         './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
         './storage/framework/views/*.php',
@@ -17,33 +23,43 @@ export default {
             },
             colors: {
                 primary: {
-                    DEFAULT: '#1C3B2A',
-                    deep: '#122619',
-                    light: '#2C3A31',
-                    tint: '#E7EFE1',
+                    DEFAULT: withOpacity('--color-primary'),
+                    deep: withOpacity('--color-primary-deep'),
+                    light: withOpacity('--color-primary-light'),
+                    tint: withOpacity('--color-primary-tint'),
                 },
                 accent: {
-                    DEFAULT: '#F9E0A7',
-                    deep: '#7A5C1C',
-                    mid: '#8A6A28',
-                    tint: '#FCEFCF',
+                    DEFAULT: withOpacity('--color-accent'),
+                    deep: withOpacity('--color-accent-deep'),
+                    mid: withOpacity('--color-accent-mid'),
+                    tint: withOpacity('--color-accent-tint'),
+                },
+                ink: {
+                    DEFAULT: withOpacity('--color-ink'),
+                    light: withOpacity('--color-ink-light'),
                 },
                 background: {
-                    DEFAULT: '#FDF7EA',
-                    alt: '#FAF4E6',
+                    DEFAULT: withOpacity('--color-background'),
+                    alt: withOpacity('--color-background-alt'),
                 },
                 surface: {
-                    DEFAULT: '#FDF9EF',
-                    white: '#FFFFFF',
+                    DEFAULT: withOpacity('--color-surface'),
+                    white: withOpacity('--color-surface-white'),
                 },
                 text: {
-                    primary: '#1C2A21',
-                    body: '#5E6E63',
-                    muted: '#8A9A8E',
+                    primary: withOpacity('--color-text-primary'),
+                    body: withOpacity('--color-text-body'),
+                    muted: withOpacity('--color-text-muted'),
                 },
                 border: {
-                    DEFAULT: '#E8DFC9',
-                    strong: '#DED8CE',
+                    DEFAULT: withOpacity('--color-border'),
+                    strong: withOpacity('--color-border-strong'),
+                },
+                stat: {
+                    teal: { DEFAULT: withOpacity('--color-stat-teal'), tint: withOpacity('--color-stat-teal-tint'), deep: withOpacity('--color-stat-teal-deep') },
+                    blue: { DEFAULT: withOpacity('--color-stat-blue'), tint: withOpacity('--color-stat-blue-tint'), deep: withOpacity('--color-stat-blue-deep') },
+                    orange: { DEFAULT: withOpacity('--color-stat-orange'), tint: withOpacity('--color-stat-orange-tint'), deep: withOpacity('--color-stat-orange-deep') },
+                    violet: { DEFAULT: withOpacity('--color-stat-violet'), tint: withOpacity('--color-stat-violet-tint'), deep: withOpacity('--color-stat-violet-deep') },
                 },
             },
         },

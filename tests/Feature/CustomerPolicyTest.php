@@ -11,10 +11,10 @@ class CustomerPolicyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_create_customers()
+    public function test_staff_can_create_customers()
     {
-        $user = User::factory()->create(['role' => 'admin']);
-        
+        $user = User::factory()->create(['role' => 'staff']);
+
         $this->actingAs($user)
             ->post(route('customers.store'), [
                 'name' => 'Acme Corp',
@@ -25,10 +25,26 @@ class CustomerPolicyTest extends TestCase
             ->assertRedirect(route('customers.index'));
     }
 
-    public function test_staff_cannot_create_customers()
+    public function test_creating_a_customer_does_not_create_a_login_account(): void
     {
-        $user = User::factory()->create(['role' => 'staff']);
-        
+        $staff = User::factory()->create(['role' => 'staff']);
+
+        $this->actingAs($staff)->post(route('customers.store'), [
+            'name' => 'Jane Doe',
+            'email' => 'jane@example.com',
+            'phone' => '0712 345 678',
+            'address' => 'Nairobi',
+        ]);
+
+        $customer = Customer::where('email', 'jane@example.com')->firstOrFail();
+        $this->assertNull($customer->user_id);
+        $this->assertDatabaseMissing('users', ['email' => 'jane@example.com']);
+    }
+
+    public function test_admin_cannot_create_customers()
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+
         $this->actingAs($user)
             ->get(route('customers.create'))
             ->assertStatus(403);
@@ -62,12 +78,12 @@ class CustomerPolicyTest extends TestCase
             ->assertStatus(200);
     }
 
-    public function test_admin_can_update_customers()
+    public function test_staff_can_update_customers()
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $staff = User::factory()->create(['role' => 'staff']);
         $customer = Customer::factory()->create();
-        
-        $this->actingAs($admin)
+
+        $this->actingAs($staff)
             ->put(route('customers.update', $customer), [
                 'name' => 'Updated Name',
                 'email' => 'updated@example.com',
@@ -75,31 +91,35 @@ class CustomerPolicyTest extends TestCase
                 'address' => '456 Oak Ave',
             ])
             ->assertRedirect();
-        
+
         $this->assertDatabaseHas('customers', [
             'id' => $customer->id,
             'name' => 'Updated Name',
         ]);
     }
 
-    public function test_admin_can_delete_customers()
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $customer = Customer::factory()->create();
-        
-        $this->actingAs($admin)
-            ->delete(route('customers.destroy', $customer))
-            ->assertRedirect();
-        
-        $this->assertDatabaseMissing('customers', ['id' => $customer->id]);
-    }
-
-    public function test_staff_cannot_delete_customers()
+    public function test_staff_can_delete_customers()
     {
         $staff = User::factory()->create(['role' => 'staff']);
         $customer = Customer::factory()->create();
-        
+
         $this->actingAs($staff)
+            ->delete(route('customers.destroy', $customer))
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('customers', ['id' => $customer->id]);
+    }
+
+    public function test_admin_cannot_update_or_delete_customers()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $customer = Customer::factory()->create();
+
+        $this->actingAs($admin)
+            ->put(route('customers.update', $customer), ['name' => 'x', 'email' => $customer->email])
+            ->assertStatus(403);
+
+        $this->actingAs($admin)
             ->delete(route('customers.destroy', $customer))
             ->assertStatus(403);
     }

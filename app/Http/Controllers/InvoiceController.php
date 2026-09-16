@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreInvoiceRequest;
+use App\Http\Resources\InvoiceResource;
+use App\Jobs\SendInvoiceEmail;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Product;
@@ -11,7 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
-use App\Jobs\SendInvoiceEmail;
 
 class InvoiceController extends Controller
 {
@@ -20,10 +21,36 @@ class InvoiceController extends Controller
      */
     public function index()
     {
-        $invoices = Invoice::with('customer')->orderBy('id', 'desc')->paginate(15);
+        $this->authorize('viewAny', Invoice::class);
+        $this->markOverdueInvoices();
+
+        $search = request('search');
+        $status = request('status');
+
+        $query = Invoice::with('customer')->orderByDesc('id');
+
+        if ($search) {
+            $query->where(function ($query) use ($search) {
+                $query->where('invoice_number', 'like', "%{$search}%")
+                    ->orWhereHas('customer', fn ($customerQuery) => $customerQuery
+                        ->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if (in_array($status, ['draft', 'sent', 'paid', 'overdue'], true)) {
+            $query->where('status', $status);
+        }
+
+        if (request()->user()->isCustomer()) {
+            $query->whereHas('customer', fn ($customerQuery) => $customerQuery
+                ->where('user_id', request()->user()->id));
+        }
+
+        $invoices = $query->paginate(15);
 
         return Inertia::render('Invoices/Index', [
-            'invoices' => $invoices,
+            'invoices' => InvoiceResource::collection($invoices),
+            'filters' => ['search' => $search, 'status' => $status],
         ]);
     }
 
@@ -48,6 +75,8 @@ class InvoiceController extends Controller
      */
     public function store(StoreInvoiceRequest $request)
     {
+        $this->authorize('create', Invoice::class);
+
         $data = $request->validated();
 
         try {
@@ -81,7 +110,7 @@ class InvoiceController extends Controller
                     'invoice_number' => $invoiceNumber,
                     'issue_date' => $data['issue_date'],
                     'due_date' => $data['due_date'],
-                    'status' => 'sent',
+                    'status' => 'draft',
                     'subtotal' => 0,
                     'tax' => 0,
                     'total' => 0,
@@ -119,10 +148,7 @@ class InvoiceController extends Controller
             ]);
         }
 
-        // dispatch email job after transaction completes
-        SendInvoiceEmail::dispatch($invoice)->onQueue('emails');
-
-        return redirect()->route('invoices.show', $invoice->id)->with('success', 'Invoice created successfully.');
+        return redirect()->route('invoices.show', $invoice->id)->with('success', 'Invoice saved as a draft.');
     }
 
     /**
@@ -130,7 +156,8 @@ class InvoiceController extends Controller
      */
     public function show(string $id)
     {
-        $invoice = Invoice::with(['customer', 'items.product'])->findOrFail($id);
+        $this->markOverdueInvoices();
+        $invoice = Invoice::with(['customer', 'items.product', 'payments' => fn ($query) => $query->latest()])->findOrFail($id);
 
         $this->authorize('view', $invoice);
 
@@ -139,12 +166,25 @@ class InvoiceController extends Controller
         ]);
     }
 
+    // marks a draft as sent and emails the customer
+    public function send(Invoice $invoice)
+    {
+        $this->authorize('send', $invoice);
+
+        $invoice->update(['status' => 'sent']);
+        SendInvoiceEmail::dispatch($invoice);
+
+        return back()->with('success', 'Invoice sent and email delivered.');
+    }
+
     /**
      * Download the invoice PDF.
      */
     public function pdf(string $id)
     {
+        $this->markOverdueInvoices();
         $invoice = Invoice::with(['customer', 'items.product'])->findOrFail($id);
+        $this->authorize('view', $invoice);
 
         $pdf = Pdf::loadView('pdf.invoice', [
             'invoice' => $invoice,
@@ -175,5 +215,14 @@ class InvoiceController extends Controller
     public function destroy(string $id)
     {
         // not required for this iteration
+    }
+
+    // flips any sent invoice past its due date to overdue
+    private function markOverdueInvoices(): void
+    {
+        Invoice::query()
+            ->where('status', 'sent')
+            ->whereDate('due_date', '<', today())
+            ->update(['status' => 'overdue']);
     }
 }

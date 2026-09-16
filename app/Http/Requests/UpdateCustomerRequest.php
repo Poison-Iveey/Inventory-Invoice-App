@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Customer;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateCustomerRequest extends FormRequest
 {
@@ -23,12 +25,24 @@ class UpdateCustomerRequest extends FormRequest
     public function rules(): array
     {
         $id = $this->route('customer');
+        $userId = Customer::find($id)?->user_id;
 
         return [
             'name' => ['required','string','max:255'],
-            'email' => ['nullable','email','max:255','unique:customers,email,'.$id],
-            'phone' => ['nullable','string','max:40'],
+            'email' => [
+                'required','email','max:255',
+                Rule::unique('customers', 'email')->ignore($id),
+                Rule::unique('users', 'email')->ignore($userId),
+            ],
+            'phone' => ['nullable','string','max:40','regex:/^[0-9+\-\s().]+$/'],
             'address' => ['nullable','string'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'phone.regex' => 'Phone number can only contain digits, spaces, and + - ( ) characters.',
         ];
     }
 }

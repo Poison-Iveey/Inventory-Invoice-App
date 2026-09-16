@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use App\Models\Product;
-use Illuminate\Support\Facades\Storage;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
+use App\Http\Resources\ProductResource;
+use App\Models\Product;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Inertia\Inertia;
 
 class ProductController extends Controller
 {
@@ -16,7 +17,14 @@ class ProductController extends Controller
      */
     public function index()
     {
+        $this->authorize('viewAny', Product::class);
+
+        if (request()->user()->isCustomer()) {
+            return $this->catalog();
+        }
+
         $search = request('search');
+        $status = request('status');
 
         $query = Product::query();
         if ($search) {
@@ -25,10 +33,43 @@ class ProductController extends Controller
                     ->orWhere('sku', 'like', "%{$search}%");
             });
         }
+        if (in_array($status, ['active', 'inactive'], true)) {
+            $query->where('status', $status);
+        }
 
-        $products = $query->orderBy('id','desc')->paginate(10)->withQueryString();
+        $products = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
         return Inertia::render('Products/Index', [
+            'products' => ProductResource::collection($products),
+            'filters' => ['search' => $search, 'status' => $status],
+        ]);
+    }
+
+    /**
+     * Read-only product browsing for customers — no SKU, no exact stock count,
+     * only active products.
+     */
+    private function catalog()
+    {
+        $search = request('search');
+
+        $query = Product::query()->where('status', 'active');
+        if ($search) {
+            $query->where('name', 'like', "%{$search}%");
+        }
+
+        $products = $query->orderBy('name')->paginate(12)->withQueryString();
+
+        $products->getCollection()->transform(fn (Product $product) => [
+            'id' => $product->id,
+            'name' => $product->name,
+            'description' => $product->description,
+            'price' => (float) $product->price,
+            'image_url' => $product->image ? Storage::disk('public')->url($product->image) : null,
+            'in_stock' => $product->stock > 0,
+        ]);
+
+        return Inertia::render('Products/Catalog', [
             'products' => $products,
             'filters' => ['search' => $search],
         ]);
@@ -40,6 +81,7 @@ class ProductController extends Controller
     public function create()
     {
         $this->authorize('create', Product::class);
+
         return Inertia::render('Products/Create');
     }
 
@@ -48,12 +90,10 @@ class ProductController extends Controller
      */
     public function store(StoreProductRequest $request)
     {
-        $user = $request->user();
-        if (! ($user && ($user->isAdmin() || $user->isStaff()))) {
-            abort(403);
-        }
+        $this->authorize('create', Product::class);
 
         $data = $request->validated();
+        $data['sku'] = $this->generateSku();
 
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('products', 'public');
@@ -66,12 +106,26 @@ class ProductController extends Controller
     }
 
     /**
+     * Generate a unique, system-assigned SKU so admins never have to invent one.
+     */
+    private function generateSku(): string
+    {
+        do {
+            $sku = 'SKU-'.strtoupper(Str::random(6));
+        } while (Product::where('sku', $sku)->exists());
+
+        return $sku;
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(string $id)
     {
         $product = Product::findOrFail($id);
-        return Inertia::render('Products/Show', ['product' => $product]);
+        $this->authorize('view', $product);
+
+        return Inertia::render('Products/Show', ['product' => (new ProductResource($product))->resolve()]);
     }
 
     /**
@@ -80,7 +134,9 @@ class ProductController extends Controller
     public function edit(string $id)
     {
         $product = Product::findOrFail($id);
-        return Inertia::render('Products/Edit', ['product' => $product]);
+        $this->authorize('update', $product);
+
+        return Inertia::render('Products/Edit', ['product' => (new ProductResource($product))->resolve()]);
     }
 
     /**
@@ -88,12 +144,9 @@ class ProductController extends Controller
      */
     public function update(UpdateProductRequest $request, string $id)
     {
-        $user = $request->user();
-        if (! ($user && ($user->isAdmin() || $user->isStaff()))) {
-            abort(403);
-        }
-
         $product = Product::findOrFail($id);
+        $this->authorize('update', $product);
+
         $data = $request->validated();
 
         if ($request->hasFile('image')) {
@@ -116,12 +169,9 @@ class ProductController extends Controller
      */
     public function destroy(string $id)
     {
-        $user = request()->user();
-        if (! ($user && $user->isAdmin())) {
-            abort(403);
-        }
-
         $product = Product::findOrFail($id);
+        $this->authorize('delete', $product);
+
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
         }

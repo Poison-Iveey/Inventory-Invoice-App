@@ -14,11 +14,11 @@ class InvoiceCreationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_invoice_creation_deducts_stock_and_dispatches_job()
+    public function test_invoice_creation_deducts_stock_and_creates_a_draft()
     {
         Bus::fake();
 
-        $user = User::factory()->create(['role' => 'admin']);
+        $user = User::factory()->create(['role' => 'staff']);
         $customer = Customer::factory()->create();
         $product = Product::factory()->create(['stock' => 10, 'price' => 100]);
 
@@ -40,6 +40,7 @@ class InvoiceCreationTest extends TestCase
 
         $this->assertDatabaseHas('invoices', [
             'customer_id' => $customer->id,
+            'status' => 'draft',
             'subtotal' => 300,
             'total' => 300,
         ]);
@@ -49,12 +50,12 @@ class InvoiceCreationTest extends TestCase
             'stock' => 7,
         ]);
 
-        Bus::assertDispatched(SendInvoiceEmail::class);
+        Bus::assertNotDispatched(SendInvoiceEmail::class);
     }
 
     public function test_invoice_creation_fails_with_insufficient_stock()
     {
-        $user = User::factory()->create(['role' => 'admin']);
+        $user = User::factory()->create(['role' => 'staff']);
         $customer = Customer::factory()->create();
         $product = Product::factory()->create(['stock' => 1, 'price' => 50]);
 

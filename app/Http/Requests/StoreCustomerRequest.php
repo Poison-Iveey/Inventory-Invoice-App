@@ -24,9 +24,16 @@ class StoreCustomerRequest extends FormRequest
     {
         return [
             'name' => ['required','string','max:255'],
-            'email' => ['nullable','email','max:255','unique:customers,email'],
-            'phone' => ['nullable','string','max:40'],
+            'email' => ['required','email','max:255','unique:customers,email','unique:users,email'],
+            'phone' => ['nullable','string','max:40','regex:/^[0-9+\-\s().]+$/'],
             'address' => ['nullable','string'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'phone.regex' => 'Phone number can only contain digits, spaces, and + - ( ) characters.',
         ];
     }
 }

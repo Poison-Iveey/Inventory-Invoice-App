@@ -1,6 +1,9 @@
 <script setup>
+import { computed } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import BackLink from '@/Components/BackLink.vue'
+import { formatCurrency } from '@/currency'
 
 const props = defineProps({ customers: Array, products: Array })
 
@@ -25,17 +28,29 @@ function submit() {
   form.post('/invoices')
 }
 
-function getProductStock(productId) {
-  const product = props.products.find(p => p.id == productId)
-  return product?.stock || 0
+function getProduct(productId) {
+  return props.products.find(p => p.id == productId)
 }
+
+function getProductStock(productId) {
+  return getProduct(productId)?.stock || 0
+}
+
+function lineTotal(item) {
+  const product = getProduct(item.product_id)
+  if (!product || !item.quantity) return 0
+  return product.price * item.quantity
+}
+
+// no tax is charged on invoices in this system, so subtotal = total
+const subtotal = computed(() => form.items.reduce((sum, item) => sum + lineTotal(item), 0))
 </script>
 
 <template>
   <Head title="Create Invoice" />
   <AuthenticatedLayout>
     <template #header>
-      <h2 class="text-3xl font-bold text-primary">Create New Invoice</h2>
+      <h2 class="text-3xl font-bold text-text-primary">Create New Invoice</h2>
     </template>
 
     <div class="p-6 max-w-5xl mx-auto">
@@ -121,25 +136,43 @@ function getProductStock(productId) {
 
                 <div>
                   <label class="text-xs font-semibold text-text-muted uppercase mb-1 block">Quantity</label>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    v-model.number="item.quantity" 
+                  <input
+                    type="number"
+                    min="1"
+                    max="100000"
+                    v-model.number="item.quantity"
                     class="w-full px-3 py-2 border border-border rounded-lg bg-surface-white text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent transition"
                   />
                   <p v-if="getProductStock(item.product_id) < item.quantity" class="text-xs text-red-600 mt-1">
                     Stock: {{ getProductStock(item.product_id) }}
                   </p>
+                  <p v-else-if="item.product_id" class="text-xs text-text-muted mt-1">
+                    Line total: {{ formatCurrency(lineTotal(item)) }}
+                  </p>
                 </div>
 
                 <div class="flex items-end">
-                  <button 
-                    @click.prevent="removeLine(index)" 
+                  <button
+                    @click.prevent="removeLine(index)"
                     v-if="form.items.length > 1"
                     class="w-full px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition"
                   >
                     Remove
                   </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Running Total -->
+            <div class="flex justify-end mt-4">
+              <div class="w-full md:w-64 bg-primary-tint rounded-lg p-4 space-y-1">
+                <div class="flex justify-between text-sm text-text-body">
+                  <span>Subtotal</span>
+                  <span>{{ formatCurrency(subtotal) }}</span>
+                </div>
+                <div class="flex justify-between font-semibold text-primary-deep">
+                  <span>Total</span>
+                  <span>{{ formatCurrency(subtotal) }}</span>
                 </div>
               </div>
             </div>
@@ -158,9 +191,7 @@ function getProductStock(productId) {
               <span v-if="form.processing" class="inline-block animate-spin">⟳</span>
               {{ form.processing ? 'Creating...' : 'Create Invoice' }}
             </button>
-            <a href="/invoices" class="inline-flex items-center gap-2 bg-border hover:bg-border-strong text-text-primary font-semibold py-2 px-6 rounded-lg transition">
-              Cancel
-            </a>
+            <BackLink :href="route('invoices.index')">Cancel</BackLink>
           </div>
         </div>
       </form>

@@ -20,13 +20,23 @@
     <div class="container">
         <div class="header">
             <div>
-                <div class="title">Invoice</div>
-                <div class="meta"># {{ $invoice->invoice_number }}</div>
+                <div class="title">{{ config('company.name') }}</div>
+                @if (config('company.address'))
+                    <div class="meta">{{ config('company.address') }}</div>
+                @endif
+                @if (config('company.phone'))
+                    <div class="meta">{{ config('company.phone') }}</div>
+                @endif
+                @if (config('company.email'))
+                    <div class="meta">{{ config('company.email') }}</div>
+                @endif
             </div>
-            <div class="meta">
+            <div class="meta" style="text-align: right;">
+                <div style="font-size: 20px; font-weight: bold;">INVOICE</div>
+                <div># {{ $invoice->invoice_number }}</div>
                 <div>Issue: {{ $invoice->issue_date }}</div>
                 <div>Due: {{ $invoice->due_date }}</div>
-                <div>Status: {{ $invoice->status }}</div>
+                <div>Status: {{ ucfirst($invoice->status) }}</div>
             </div>
         </div>
 
@@ -51,17 +61,17 @@
                     <tr>
                         <td>{{ $item->product->name }}</td>
                         <td>{{ $item->quantity }}</td>
-                        <td>${{ number_format($item->unit_price, 2) }}</td>
-                        <td>${{ number_format($item->total, 2) }}</td>
+                        <td>KSh {{ number_format($item->unit_price, 2) }}</td>
+                        <td>KSh {{ number_format($item->total, 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>
         </table>
 
         <div class="totals">
-            <div><span>Subtotal</span><span>${{ number_format($invoice->subtotal, 2) }}</span></div>
-            <div><span>Tax</span><span>${{ number_format($invoice->tax, 2) }}</span></div>
-            <div><strong><span>Total</span><span>${{ number_format($invoice->total, 2) }}</span></strong></div>
+            <div><span>Subtotal</span><span>KSh {{ number_format($invoice->subtotal, 2) }}</span></div>
+            <div><span>Tax</span><span>KSh {{ number_format($invoice->tax, 2) }}</span></div>
+            <div><strong><span>Total</span><span>KSh {{ number_format($invoice->total, 2) }}</span></strong></div>
         </div>
     </div>
 </body>
