@@ -23,12 +23,6 @@ function submit() {
     </template>
 
     <div class="mx-auto max-w-2xl p-6">
-      <div class="mb-5 rounded-lg border border-border bg-primary-tint p-4 text-sm text-primary-deep">
-        This just creates a customer record — no login is required. You can invoice, email, and record payments for
-        them right away. If they'd ever like to log in and view their own invoices online, you can grant that from
-        their customer page afterwards.
-      </div>
-
       <form @submit.prevent="submit" class="space-y-5 rounded-lg border border-border bg-surface-DEFAULT p-6 shadow-sm">
         <div>
           <InputLabel for="name" value="Name" />

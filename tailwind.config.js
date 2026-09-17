@@ -62,6 +62,20 @@ export default {
                     violet: { DEFAULT: withOpacity('--color-stat-violet'), tint: withOpacity('--color-stat-violet-tint'), deep: withOpacity('--color-stat-violet-deep') },
                 },
             },
+            keyframes: {
+                'bell-shake': {
+                    '0%, 92%, 100%': { transform: 'rotate(0deg)' },
+                    '93%': { transform: 'rotate(12deg)' },
+                    '94%': { transform: 'rotate(-10deg)' },
+                    '95%': { transform: 'rotate(8deg)' },
+                    '96%': { transform: 'rotate(-6deg)' },
+                    '97%': { transform: 'rotate(3deg)' },
+                    '98%': { transform: 'rotate(0deg)' },
+                },
+            },
+            animation: {
+                'bell-shake': 'bell-shake 3.5s ease-in-out infinite',
+            },
         },
     },
 

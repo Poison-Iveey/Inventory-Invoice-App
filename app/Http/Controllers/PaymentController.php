@@ -7,7 +7,11 @@ use App\Http\Resources\PaymentResource;
 use App\Jobs\SendPaymentApprovedEmail;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\User;
+use App\Notifications\PaymentReviewed;
+use App\Notifications\PaymentSubmitted;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -77,14 +81,17 @@ class PaymentController extends Controller
             $attributes['reviewed_at'] = now();
         }
 
-        $invoice->payments()->create($attributes);
+        $payment = $invoice->payments()->create($attributes);
 
         if ($user->isAccountant()) {
             $invoice->update(['status' => 'paid']);
             SendPaymentApprovedEmail::dispatch($invoice);
+            $this->notifyCustomerOfReview($payment);
 
             return back()->with('success', 'Payment recorded and invoice marked as paid.');
         }
+
+        $this->notifyAccountantsOfSubmission($payment);
 
         return back()->with('success', 'Payment submitted. The accountant will review it shortly.');
     }
@@ -101,8 +108,9 @@ class PaymentController extends Controller
 
         $payment->invoice->update(['status' => 'paid']);
 
-        // dispatched to the default queue (see SendInvoiceEmail for why this matters)
+        // synchronous, not queued (see SendInvoiceEmail for why this matters)
         SendPaymentApprovedEmail::dispatch($payment->invoice);
+        $this->notifyCustomerOfReview($payment);
 
         return back()->with('success', 'Payment approved and invoice marked as paid.');
     }
@@ -122,6 +130,35 @@ class PaymentController extends Controller
             'rejection_reason' => $data['rejection_reason'],
         ]);
 
+        // there is no rejection email (see PaymentReviewed) — the bell is the
+        // only place a customer finds out, until they next open the invoice
+        $this->notifyCustomerOfReview($payment);
+
         return back()->with('success', 'Payment rejected.');
+    }
+
+    /**
+     * Lets every Accountant know a payment is waiting in their review queue.
+     */
+    private function notifyAccountantsOfSubmission(Payment $payment): void
+    {
+        $accountants = User::where('role', 'accountant')->get();
+
+        if ($accountants->isNotEmpty()) {
+            Notification::send($accountants, new PaymentSubmitted($payment));
+        }
+    }
+
+    /**
+     * Only fires if the invoice's customer actually has a portal login —
+     * most customers don't, and that's fine, there's simply no bell to ring.
+     */
+    private function notifyCustomerOfReview(Payment $payment): void
+    {
+        $customerUser = $payment->invoice->customer?->user;
+
+        if ($customerUser) {
+            $customerUser->notify(new PaymentReviewed($payment));
+        }
     }
 }
